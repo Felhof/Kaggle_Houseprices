@@ -1,6 +1,7 @@
 from functools import reduce
 from itertools import chain
 from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import LabelBinarizer, MinMaxScaler
 
 import numpy as np
 import pandas as pd
@@ -66,18 +67,40 @@ def evaluate(model, X, y):
     print("MSE: {}".format(mse))
 
 
+def preprocess(data_raw):
+    categorical_data = data_raw.select_dtypes(include="object")
+    categorical_data["MSSubClass"] = data_raw["MSSubClass"].astype(str)
+
+    categorical_data = categorical_data.apply(lambda col: col.fillna("no_{}".format(col.name)))
+
+    lb = LabelBinarizer()
+
+    for col_name, col_data in categorical_data.iteritems():
+        binarized_col = lb.fit_transform(col_data)
+        categorical_data = categorical_data.drop(col_name, axis="columns") \
+                            .join(pd.DataFrame(binarized_col, columns=lb.classes_))
+
+
+    numerical_data = data_raw.drop(["id","MSSubClass"], axis="columns") \
+                            .select_dtypes(include=np.number)
+
+    numerical_data = numerical_data.apply(lambda col: col.fillna(col.mean()))
+
+    scaler = MinMaxScaler()
+    scaled_data = scaler.fit_transform(numerical_data)
+    numerical_data = pd.DataFrame(scaled_data, columns=numerical_data.columns.tolist())
+
+    return numerical_data.join(categorical_data)
+
 if __name__ == "__main__":
 
     train_df=pd.read_csv("train.csv")
     evaluation_df=pd.read_csv("test.csv")
 
-    #data_raw = pd.concat([train_df, evaluation_df], ignore_index=True, sort=False)
-    #data_processed = preprocess(data_raw)
-    #train_df, evaluation_df = np.split(data_processed, [len(train_df)])
-    #evaluation_df.drop("SalePrice", axis="columns", inplace=True)
-
-    train_features = train_df[["YearBuilt","PoolArea","GrLivArea","GarageArea"]]
-    train_target = train_df["SalePrice"]
+    data_raw = pd.concat([train_df, evaluation_df], ignore_index=True, sort=False)
+    data_processed = preprocess(data_raw)
+    train_df, evaluation_df = np.split(data_processed, [len(train_df)])
+    evaluation_df.drop("SalePrice", axis="columns", inplace=True)
 
     X_train, X_test, y_train, y_test = train_test_split(train_features, train_target)
     y_train = y_train.astype(int)
