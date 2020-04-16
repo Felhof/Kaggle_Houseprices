@@ -37,7 +37,7 @@ class HouseNet(nn.Module):
 def fit_model(model, X, y):
     epochs = 10
     batch_size = 80
-    learning_rate = 0.001
+    learning_rate = 0.1
 
     loss_function = nn.MSELoss()
     optimiser = torch.optim.Adam(list(model.parameters()), lr=learning_rate)
@@ -51,6 +51,7 @@ def fit_model(model, X, y):
         for (x, ground_truth) in train_loader:
             output = torch.squeeze(model(x))
             loss = loss_function(output, ground_truth)
+            print(loss.item())
 
             optimiser.zero_grad()
             loss.backward()
@@ -60,7 +61,9 @@ def fit_model(model, X, y):
 
 
 def evaluate(model, X, y):
-    pass
+    predictions = torch.squeeze(model(torch.Tensor(np.array(X))))
+    mse = nn.MSELoss()(predictions, torch.Tensor(np.array(y))).item()
+    print("MSE: {}".format(mse))
 
 
 if __name__ == "__main__":
